@@ -9,6 +9,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.location.Geocoder
 import android.location.Location
 import android.os.Build
 import android.os.IBinder
@@ -16,6 +17,7 @@ import android.util.Log
 import androidx.annotation.RequiresPermission
 import androidx.core.app.NotificationCompat
 import com.google.android.gms.location.*
+import java.util.Locale
 
 class LocationForegroundService : Service() {
 
@@ -92,7 +94,9 @@ class LocationForegroundService : Service() {
     private fun saveLocation(location: Location) {
         val sharedPref = getSharedPreferences("location_prefs", Context.MODE_PRIVATE)
         sharedPref.edit().putString("last_location", "${location.latitude},${location.longitude}").apply()
-        Log.d("LocationService", "Saved location: ${location.latitude},${location.longitude}")
+        val placeName = getPlaceName(this, location.latitude, location.longitude)
+
+        Log.d("LocationService", "Saved location: ${location.latitude},${location.longitude} --> $placeName")
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -100,5 +104,24 @@ class LocationForegroundService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         fusedLocationClient.removeLocationUpdates(locationCallback)
+    }
+
+
+    fun getPlaceName(context: Context, latitude: Double, longitude: Double): String {
+        return try {
+            val geocoder = Geocoder(context, Locale.getDefault())
+            val addresses = geocoder.getFromLocation(latitude, longitude, 1)
+
+            if (!addresses.isNullOrEmpty()) {
+                val address = addresses[0]
+                // You can use different fields: address.locality, address.adminArea, etc.
+                address.getAddressLine(0) ?: "Unknown Location"
+            } else {
+                "Unknown Location"
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            "Error fetching location"
+        }
     }
 }
